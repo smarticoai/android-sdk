@@ -6,3 +6,4 @@ plugins {
 }
 group = "com.smartico"
 version = "0.0.1"
+

@@ -1,0 +1,3 @@
+package com.smartico.androidsdk.model
+
+internal interface SmarticoWebSocketMessage
