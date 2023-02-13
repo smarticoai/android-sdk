@@ -59,6 +59,9 @@ class SmarticoSdk private constructor() {
     fun online(userId: String, language: String) {
         SdkSession.instance.userExtId = userId
         // TODO: What is the language param for
+        // AA> when user is identified, we will get in the public properties current language of user
+        // AA> if this language is different from what is passed in the "online", then we need to send event to change it
+        // AA> put example in google doc
         // TODO: Get token from firebase and check permissions for push for pushNotificationUserStatus param
         val request = IdentifyUserRequest(
             extUserId = userId, token = "testToken",
@@ -79,7 +82,8 @@ class SmarticoSdk private constructor() {
                         val brandKey = SdkSession.instance.brandKey ?: ""
                         val userExtId = SdkSession.instance.userExtId ?: ""
 
-                        val finalUrl =  "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId"
+                        // AA: pass known deep-links to gamification widget as part of URL
+                        val finalUrl =  "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
                         val webView = SmarticoWebView(context)
                         webView.executeDpk(finalUrl)
                         callback(webView)

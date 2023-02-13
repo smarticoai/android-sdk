@@ -64,3 +64,19 @@ dependencies {
     api 'com.google.code.gson:gson:2.10.1'
 
 }
+
+
+
+task copyAar(type: Copy) {
+    from 'build/outputs/aar'
+    into './../../android-sample-app/app/libs'
+    include '*.aar'
+}
+
+
+
+tasks.whenTaskAdded { task ->
+    if (task.name == 'bundleSdkDebugAar') {
+        task.dependsOn copyAar
+    }
+}

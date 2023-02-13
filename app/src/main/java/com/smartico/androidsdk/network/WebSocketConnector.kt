@@ -26,6 +26,7 @@ internal class WebSocketConnector: WebSocketListener() {
 
     private fun serviceUrl(): String {
         // TODO: What to put as domain?
+        // AA: application bundle ID
         val domain = "androidsmarticosdk.com"
         val codeVersion = SmarticoSdk.libraryVersion
         return "wss://api.smartico.ai/websocket/services?master&domain=$domain&version=$codeVersion"

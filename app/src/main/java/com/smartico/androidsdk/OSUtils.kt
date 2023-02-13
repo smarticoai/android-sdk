@@ -36,7 +36,7 @@ internal class OSUtils {
         }
 
         fun timezoneOffsetInMins(): Int {
-            return TimeZone.getDefault().rawOffset / (1000 * 60)
+            return -1 * TimeZone.getDefault().rawOffset / (1000 * 60)
         }
     }
 }
