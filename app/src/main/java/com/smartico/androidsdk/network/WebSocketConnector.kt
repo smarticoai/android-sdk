@@ -7,6 +7,7 @@ import com.smartico.androidsdk.messageengine.ResponseHandler
 import com.smartico.androidsdk.model.SmarticoWebSocketMessage
 import okhttp3.*
 import okio.ByteString
+import java.net.SocketException
 
 
 internal class WebSocketConnector: WebSocketListener() {
@@ -25,9 +26,7 @@ internal class WebSocketConnector: WebSocketListener() {
     }
 
     private fun serviceUrl(): String {
-        // TODO: What to put as domain?
-        // AA: application bundle ID
-        val domain = "androidsmarticosdk.com"
+        val domain = SmarticoSdk.instance.bundleId()
         val codeVersion = SmarticoSdk.libraryVersion
         return "wss://api.smartico.ai/websocket/services?master&domain=$domain&version=$codeVersion"
     }
@@ -81,8 +80,9 @@ internal class WebSocketConnector: WebSocketListener() {
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         synchronized(this) {
-            super.onFailure(webSocket, t, response)
+            log("onFailure:")
             log(t)
+            super.onFailure(webSocket, t, response)
             SmarticoSdk.instance.listener?.onDisconnected()
         }
     }

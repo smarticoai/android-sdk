@@ -9,8 +9,18 @@ internal class SdkSession private constructor() {
     var labelName: String? = null
     var brandKey: String? = null
     var userExtId: String? = null
+    var language: String? = null
 
     companion object {
         val instance = SdkSession()
+    }
+
+    fun clearSession() {
+        sessionResponse = null
+        identifyUserResponse = null
+        labelName = null
+        brandKey = null
+        userExtId = null
+        language = null
     }
 }

@@ -1,12 +1,10 @@
 package com.smartico.androidsdk.model.request
 
 import com.google.gson.annotations.SerializedName
+import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.model.SmarticoWebSocketMessage
 
 internal data class InitSession(
-    @SerializedName("cid")
-    val cid: Int,
-
     @SerializedName("label_name")
     val labelName: String,
 
@@ -27,7 +25,7 @@ internal data class InitSession(
 
     @SerializedName("ua")
     val ua: UA
-) : SmarticoWebSocketMessage
+) : BaseRequest(cid = ClassId.InitRequest.id)
 
 internal data class UA(
 

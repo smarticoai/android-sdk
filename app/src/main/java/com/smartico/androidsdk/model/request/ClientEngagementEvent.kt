@@ -1,6 +1,7 @@
 package com.smartico.androidsdk.model.request
 
 import com.google.gson.annotations.SerializedName
+import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.model.SmarticoWebSocketMessage
 
 internal data class ClientEngagementEvent(
@@ -38,13 +39,10 @@ internal data class ClientEngagementEvent(
     @SerializedName("source_product_id")
     val sourceProductId: Int?,
 
-    @SerializedName("cid")
-    val cid: Int?,
-
     @SerializedName("ts")
     val ts: Long?,
 
     @SerializedName("uuid")
     val uuid: String?
 
-) : SmarticoWebSocketMessage
+) : BaseRequest(cid = ClassId.ClientEngagementEvent.id)

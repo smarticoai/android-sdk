@@ -2,10 +2,13 @@ package com.smartico.androidsdk.messageengine
 
 import com.google.gson.Gson
 import com.smartico.androidsdk.SmarticoSdk
+import com.smartico.androidsdk.log
+import com.smartico.androidsdk.model.request.BaseRequest
+import com.smartico.androidsdk.model.request.ChangeUserSettingsEvent
+import com.smartico.androidsdk.model.request.ChangeUserSettingsEventPayload
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import com.smartico.androidsdk.model.response.IdentifyUserResponse
 import com.smartico.androidsdk.model.response.InitSessionResponse
-import com.smartico.androidsdk.model.response.Pong
 import com.smartico.androidsdk.network.WebSocketConnector
 import org.json.JSONObject
 import java.lang.ref.WeakReference
@@ -39,13 +42,27 @@ internal class ResponseHandler(connector: WebSocketConnector) {
                     gson.fromJson(string, InitSessionResponse::class.java)
             }
             ClassId.Ping.id -> {
-                val pong = Pong()
+                val pong = BaseRequest(cid = ClassId.Pong.id)
                 connectorRef.get()?.sendMessage(pong)
             }
             ClassId.IdentifyResponse.id -> {
-                SdkSession.instance.identifyUserResponse =
-                    gson.fromJson(string, IdentifyUserResponse::class.java)
+                val resp = gson.fromJson(string, IdentifyUserResponse::class.java)
+                SdkSession.instance.identifyUserResponse = resp
                 SmarticoSdk.instance.listener?.onOnline()
+
+                resp.props?.get("core_user_language")?.let { serverUserLang ->
+                    val language = SdkSession.instance.language ?: ""
+                    if (language.isNotEmpty() && language != serverUserLang) {
+                        log("serverUserLang=$serverUserLang language=$language -> update")
+                        SmarticoSdk.instance.changeUserLanguage(
+                            ChangeUserSettingsEvent(
+                                payload = ChangeUserSettingsEventPayload(
+                                    language = language
+                                )
+                            )
+                        )
+                    }
+                }
             }
             ClassId.ClientEngagementEvent.id -> {
                 val clientEngagementEvent = gson.fromJson(string, ClientEngagementEvent::class.java)

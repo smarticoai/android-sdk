@@ -5,8 +5,6 @@ import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.model.SmarticoWebSocketMessage
 
 internal data class IdentifyUserRequest(
-    @SerializedName("cid")
-    val cid: Int = ClassId.IdentifyRequest.id,
 
     @SerializedName("ext_user_id")
     val extUserId: String,
@@ -26,4 +24,4 @@ internal data class IdentifyUserRequest(
     @SerializedName("ua")
     val ua: UA?
 
-): SmarticoWebSocketMessage
+) : BaseRequest(cid = ClassId.IdentifyRequest.id)

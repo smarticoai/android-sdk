@@ -1,11 +1,9 @@
 package com.smartico.androidsdk.model.response
 
 import com.google.gson.annotations.SerializedName
+import com.smartico.androidsdk.messageengine.ClassId
 
 internal data class IdentifyUserResponse(
-    @SerializedName("cid")
-    val cid: Int,
-
     @SerializedName("public_username")
     val publicUsername: String,
 
@@ -14,4 +12,4 @@ internal data class IdentifyUserResponse(
 
     @SerializedName("props")
     val props: Map<String, Any>?
-)
+) : BaseResponse(cid = ClassId.IdentifyResponse.id)

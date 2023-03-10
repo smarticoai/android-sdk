@@ -1,18 +1,10 @@
 package com.smartico.androidsdk.model.response
 
 import com.google.gson.annotations.SerializedName
+import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.model.SmarticoWebSocketMessage
 
 internal data class InitSessionResponse(
-    @SerializedName("cid")
-    val cid: Int,
-
-    @SerializedName("errCode")
-    val errCode: Int,
-
-    @SerializedName("errMsg")
-    val errMsg: String?,
-
     @SerializedName("ts")
     val ts: Long?,
 
@@ -28,7 +20,7 @@ internal data class InitSessionResponse(
     @SerializedName("settings")
     val settings: InitSessionResponseSettings?
 
-) : SmarticoWebSocketMessage
+) : BaseResponse(cid = ClassId.InitResponse.id)
 
 internal data class InitSessionResponsePayload(
     @SerializedName("country")

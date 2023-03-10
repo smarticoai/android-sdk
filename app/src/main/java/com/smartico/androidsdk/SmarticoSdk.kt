@@ -1,12 +1,17 @@
 package com.smartico.androidsdk
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.ConnectivityManager.NetworkCallback
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Looper
 import android.webkit.WebView
-import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.messageengine.PushClientPlatform
 import com.smartico.androidsdk.messageengine.PushNotificationUserStatus
 import com.smartico.androidsdk.messageengine.SdkSession
+import com.smartico.androidsdk.model.request.*
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import com.smartico.androidsdk.model.request.IdentifyUserRequest
 import com.smartico.androidsdk.model.request.InitSession
@@ -14,7 +19,7 @@ import com.smartico.androidsdk.model.request.UA
 import com.smartico.androidsdk.network.WebSocketConnector
 import com.smartico.androidsdk.ui.SmarticoWebView
 import java.lang.ref.WeakReference
-import java.net.URL
+
 
 /*
 https://docs.google.com/document/d/1UCeW-101nR4cnwXCd0Iw-dCICUpJyWHXgIujOgjBHrA/edit#
@@ -27,24 +32,25 @@ class SmarticoSdk private constructor() {
         val libraryVersion = "1.0.1"
         internal val os = "Android"
 
-        internal val dpkGamification = "dp:gf"
     }
 
     private var webSocketConnector: WebSocketConnector? = null
     internal lateinit var context: WeakReference<Context>
     var listener: SmarticoSdkListener? = null
+    private var shouldRetryToReconnect: Boolean = false
+    private var networkMonitorStarted: Boolean = false
 
     fun init(context: Context, label: String, brand: String) {
         log("initialize")
         this.context = WeakReference(context)
         SdkSession.instance.labelName = label
         SdkSession.instance.brandKey = brand
+        setupConnectivityMonitor()
 
         webSocketConnector = WebSocketConnector()
         webSocketConnector?.startConnector()
         webSocketConnector?.sendMessage(
             InitSession(
-                cid = ClassId.InitRequest.id,
                 labelName = label,
                 brandKey = brand,
                 deviceId = OSUtils.deviceId(),
@@ -56,8 +62,70 @@ class SmarticoSdk private constructor() {
         )
     }
 
+    private fun reconnect() {
+        context.get()?.let {
+            log("reconnect")
+            logout(it)
+            val session = SdkSession.instance
+            val userExtId = session.userExtId
+            val language = session.language
+            if (userExtId != null && language != null) {
+                log("online")
+                online(userExtId, language)
+            }
+            return
+        }
+        log("reconnect -> no context")
+    }
+
+    fun logout(context: Context) {
+        try {
+            if (SdkSession.instance.brandKey == null) {
+                // This means init was not called so we don't have anything to clear here
+                log("no session present -> skip logout")
+                return
+            }
+            webSocketConnector?.stopConnector()
+            log("logout -> socket closed")
+            val oldBrand = SdkSession.instance.brandKey
+            val oldLabel = SdkSession.instance.labelName
+            SdkSession.instance.clearSession()
+            log("logout -> session cleared")
+            if (oldBrand != null && oldLabel != null) {
+                log("logout -> reinitialize")
+                init(context, oldLabel, oldBrand)
+            }
+        } catch (e: java.lang.Exception) {
+            log(e)
+        }
+    }
+
+    internal fun changeUserLanguage(event: ChangeUserSettingsEvent) {
+        webSocketConnector?.sendMessage(event)
+    }
+
+    fun triggerEngagementEvent() {
+        webSocketConnector?.sendMessage(
+            ChangeUserSettingsEvent(
+                eventType = "client_action", payload = ChangeUserSettingsEventPayload(
+                    action = "native_trigger_popup"
+                )
+            )
+        )
+    }
+    fun triggerMiniGameEvent() {
+        webSocketConnector?.sendMessage(
+            ChangeUserSettingsEvent(
+                eventType = "client_action", payload = ChangeUserSettingsEventPayload(
+                    action = "native_trigger_saw"
+                )
+            )
+        )
+    }
+
     fun online(userId: String, language: String) {
         SdkSession.instance.userExtId = userId
+        SdkSession.instance.language = language
         // TODO: What is the language param for
         // AA> when user is identified, we will get in the public properties current language of user
         // AA> if this language is different from what is passed in the "online", then we need to send event to change it
@@ -75,22 +143,19 @@ class SmarticoSdk private constructor() {
 
     fun executeDeeplink(context: Context, link: String, callback: ((WebView) -> Unit)) {
         android.os.Handler(Looper.getMainLooper()).post {
-            if(link == dpkGamification) {
-                SdkSession.instance.sessionResponse?.settings?.gamificationWrapperPage?.let { url ->
-                    if (url.isNotEmpty()) {
-                        val labelName = SdkSession.instance.labelName ?: ""
-                        val brandKey = SdkSession.instance.brandKey ?: ""
-                        val userExtId = SdkSession.instance.userExtId ?: ""
+            SdkSession.instance.sessionResponse?.settings?.gamificationWrapperPage?.let { url ->
+                if (url.isNotEmpty()) {
+                    val labelName = SdkSession.instance.labelName ?: ""
+                    val brandKey = SdkSession.instance.brandKey ?: ""
+                    val userExtId = SdkSession.instance.userExtId ?: ""
 
-                        // AA: pass known deep-links to gamification widget as part of URL
-                        val finalUrl =  "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
-                        val webView = SmarticoWebView(context)
-                        webView.executeDpk(finalUrl)
-                        callback(webView)
-                    }
+                    // AA: pass known deep-links to gamification widget as part of URL
+                    val finalUrl =
+                        "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
+                    val webView = SmarticoWebView(context)
+                    webView.executeDpk(finalUrl)
+                    callback(webView)
                 }
-            } else {
-                log("unknown deeplink: $link")
             }
         }
     }
@@ -110,6 +175,9 @@ class SmarticoSdk private constructor() {
         webSocketConnector?.forwardMessage(msg)
     }
 
+    internal fun bundleId(): String {
+        return context.get()?.applicationContext?.packageName ?: ""
+    }
 
     private fun generateUA(): UA {
         val smallestWidthDp = context.get()?.resources?.configuration?.smallestScreenWidthDp ?: -1
@@ -128,6 +196,46 @@ class SmarticoSdk private constructor() {
         )
     }
 
+    private fun setupConnectivityMonitor() {
+        if (networkMonitorStarted) {
+            return
+        }
+        try {
+            val ctx = context.get() ?: return
+            val networkCallback: NetworkCallback = object : NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    super.onAvailable(network)
+                    log("network -> onAvailable() shouldRetryToReconnect=$shouldRetryToReconnect")
+                    if (shouldRetryToReconnect) {
+                        shouldRetryToReconnect = false
+                        reconnect()
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    super.onLost(network)
+                    val session = SdkSession.instance
+                    if (session.brandKey != null) {
+                        shouldRetryToReconnect = true
+                    }
+                    log("network -> onLost() shouldRetryToReconnect=$shouldRetryToReconnect")
+                }
+
+            }
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .build()
+            ctx.getSystemService(ConnectivityManager::class.java).let {
+                it.requestNetwork(networkRequest, networkCallback)
+                log("network -> register callback")
+                networkMonitorStarted = true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
 
 interface SmarticoSdkListener {
