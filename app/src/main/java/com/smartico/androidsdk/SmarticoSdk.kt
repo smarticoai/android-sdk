@@ -43,7 +43,7 @@ class SmarticoSdk private constructor() {
     fun init(context: Context, label: String, brand: String) {
         log("initialize")
         this.context = WeakReference(context)
-        SdkSession.instance.labelName = label
+        SdkSession.instance.labelKey = label
         SdkSession.instance.brandKey = brand
         setupConnectivityMonitor()
 
@@ -51,7 +51,7 @@ class SmarticoSdk private constructor() {
         webSocketConnector?.startConnector()
         webSocketConnector?.sendMessage(
             InitSession(
-                labelName = label,
+                labelKey = label,
                 brandKey = brand,
                 deviceId = OSUtils.deviceId(),
                 page = null,
@@ -88,7 +88,7 @@ class SmarticoSdk private constructor() {
             webSocketConnector?.stopConnector()
             log("logout -> socket closed")
             val oldBrand = SdkSession.instance.brandKey
-            val oldLabel = SdkSession.instance.labelName
+            val oldLabel = SdkSession.instance.labelKey
             SdkSession.instance.clearSession()
             log("logout -> session cleared")
             if (oldBrand != null && oldLabel != null) {
@@ -103,6 +103,18 @@ class SmarticoSdk private constructor() {
     internal fun changeUserLanguage(event: ChangeUserSettingsEvent) {
         webSocketConnector?.sendMessage(event)
     }
+
+    // triggerEngagementEvent and triggerMiniGameEvent shoudn't be part of SDK
+    // SDK should expose a method "event" that is accepting 2 parameters - eventType and any kind of JSON object.
+    // and it will be called from the Sample app in the following way
+    // .event("client_action", { "action": "native_trigger_popup" }
+    // .event("client_action", { "action": "native_trigger_saw" }
+
+    // changeUserLanguage is part of SDK and in fact just a wrapper to the ".event" method,
+    // it should look like
+    // changeUserLanguage(language: String) {
+    //      .event("core_language_changed", { "language": language })
+    // }
 
     fun triggerEngagementEvent() {
         webSocketConnector?.sendMessage(
@@ -141,17 +153,17 @@ class SmarticoSdk private constructor() {
         webSocketConnector?.sendMessage(request)
     }
 
-    fun executeDeeplink(context: Context, link: String, callback: ((WebView) -> Unit)) {
+    fun executeDeeplink(context: Context, deepLink: String, callback: ((WebView) -> Unit)) {
         android.os.Handler(Looper.getMainLooper()).post {
             SdkSession.instance.sessionResponse?.settings?.gamificationWrapperPage?.let { url ->
                 if (url.isNotEmpty()) {
-                    val labelName = SdkSession.instance.labelName ?: ""
+                    val labelKey = SdkSession.instance.labelKey ?: ""
                     val brandKey = SdkSession.instance.brandKey ?: ""
                     val userExtId = SdkSession.instance.userExtId ?: ""
 
                     // AA: pass known deep-links to gamification widget as part of URL
                     val finalUrl =
-                        "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
+                        "$url?label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$deepLink"
                     val webView = SmarticoWebView(context)
                     webView.executeDpk(finalUrl)
                     callback(webView)
@@ -161,6 +173,9 @@ class SmarticoSdk private constructor() {
     }
 
     internal fun handleEngagementEvent(event: ClientEngagementEvent) {
+        // AA: engagement event should be handled differently.
+        // As explained here - https://docs.google.com/document/d/1UxdF07JqKfsEhAwikvNhVIyqi3Zkj9rxPyl9HsXd8PA/edit#heading=h.rbc5o632fy1o
+        // As result we should show a webview with the popup inside
         context.get()?.let { ctx ->
             executeDeeplink(ctx,"dp:gf"
             ) { webView ->

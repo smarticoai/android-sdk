@@ -7,7 +7,7 @@ internal enum class ClassId(val id: Int) {
     InitResponse(4),
     IdentifyRequest(5),
     IdentifyResponse(6),
-    ChangeUserSettings(9),
+    GenericEvent(9),
     ClientEngagementEvent(110);
 
 

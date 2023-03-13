@@ -73,6 +73,7 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
             val dpk = msg.optString("dp", "")
             if(dpk.isNotEmpty()) {
                 // TODO: Check where and how to execute these DPKs exactly and what are the types
+                // AA: you actually need to call executeDeeplink of SmarticoSDK
                 executeDpk(dpk)
             }
         } else if(classId == BridgeMessageReadyToBeShown) {
