@@ -162,7 +162,8 @@ class SmarticoSdk private constructor() {
 
     internal fun handleEngagementEvent(event: ClientEngagementEvent) {
         context.get()?.let { ctx ->
-            executeDeeplink(ctx, dpkGamification) { webView ->
+            executeDeeplink(ctx,"dp:gf"
+            ) { webView ->
                 (webView as? SmarticoWebView)?.let {
                     it.onClientEngagementEvent(event)
                     listener?.onEngagementEventAvailable(webView)
