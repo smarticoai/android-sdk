@@ -43,6 +43,9 @@ internal data class ClientEngagementEvent(
     val ts: Long?,
 
     @SerializedName("uuid")
-    val uuid: String?
+    val uuid: String?,
+
+    @SerializedName("bcid")
+    var bcid: Int?
 
 ) : BaseRequest(cid = ClassId.ClientEngagementEvent.id)

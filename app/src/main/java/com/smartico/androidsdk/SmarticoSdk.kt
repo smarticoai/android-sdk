@@ -7,7 +7,14 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Looper
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebView
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.RelativeLayout
+import androidx.core.view.get
+import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.messageengine.PushClientPlatform
 import com.smartico.androidsdk.messageengine.PushNotificationUserStatus
 import com.smartico.androidsdk.messageengine.SdkSession
@@ -39,6 +46,8 @@ class SmarticoSdk private constructor() {
     var listener: SmarticoSdkListener? = null
     private var shouldRetryToReconnect: Boolean = false
     private var networkMonitorStarted: Boolean = false
+    private var gamificationHolder: WeakReference<ViewGroup>? = null
+    private var popupHolder: WeakReference<ViewGroup>? = null
 
     fun init(context: Context, label: String, brand: String) {
         log("initialize")
@@ -113,6 +122,7 @@ class SmarticoSdk private constructor() {
             )
         )
     }
+
     fun triggerMiniGameEvent() {
         webSocketConnector?.sendMessage(
             ChangeUserSettingsEvent(
@@ -121,6 +131,49 @@ class SmarticoSdk private constructor() {
                 )
             )
         )
+    }
+
+    fun setGamificationHolder(container: ViewGroup) {
+        gamificationHolder = WeakReference(container)
+    }
+
+    fun setPopupHolder(container: ViewGroup) {
+        popupHolder = WeakReference(container)
+    }
+
+    private fun addToContainer(webView: WebView, container: ViewGroup) {
+        when (container) {
+            is LinearLayout -> {
+                container.addView(
+                    webView,
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            is RelativeLayout -> {
+                container.addView(
+                    webView,
+                    RelativeLayout.LayoutParams(
+                        RelativeLayout.LayoutParams.MATCH_PARENT,
+                        RelativeLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            is FrameLayout -> {
+                container.addView(
+                    webView,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+            else -> {
+                container.addView(webView)
+            }
+        }
     }
 
     fun online(userId: String, language: String) {
@@ -141,7 +194,13 @@ class SmarticoSdk private constructor() {
         webSocketConnector?.sendMessage(request)
     }
 
-    fun executeDeeplink(context: Context, link: String, callback: ((WebView) -> Unit)) {
+    fun executeDeeplink(context: Context, link: String) {
+        gamificationHolder?.get()?.let {
+            executeDeeplink(context, link, it)
+        }
+    }
+
+    private fun executeDeeplink(context: Context, link: String, viewGroup: ViewGroup) {
         android.os.Handler(Looper.getMainLooper()).post {
             SdkSession.instance.sessionResponse?.settings?.gamificationWrapperPage?.let { url ->
                 if (url.isNotEmpty()) {
@@ -154,19 +213,37 @@ class SmarticoSdk private constructor() {
                         "$url?label_name=$labelName&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
                     val webView = SmarticoWebView(context)
                     webView.executeDpk(finalUrl)
-                    callback(webView)
+                    addToContainer(webView, viewGroup)
                 }
             }
         }
     }
 
     internal fun handleEngagementEvent(event: ClientEngagementEvent) {
-        context.get()?.let { ctx ->
-            executeDeeplink(ctx,"dp:gf"
-            ) { webView ->
-                (webView as? SmarticoWebView)?.let {
-                    it.onClientEngagementEvent(event)
-                    listener?.onEngagementEventAvailable(webView)
+        popupHolder?.get()?.let { popupHolderView ->
+            android.os.Handler(Looper.getMainLooper()).post {
+                log("handleEngagementEvent holder ok")
+                var webView: SmarticoWebView? = null
+                if (popupHolderView.childCount > 0) {
+                    popupHolderView[0].let { view ->
+                        if(view is SmarticoWebView) {
+                            log("handleEngagementEvent holder ok")
+                            webView = view
+                        }
+                    }
+                } else {
+                    context.get()?.let {
+                        val wv = SmarticoWebView(it)
+                        addToContainer(wv, popupHolderView)
+                        webView = wv
+                    }
+                }
+                SdkSession.instance.sessionResponse?.settings?.engagementWrapperPage?.let {
+                    popupHolderView.visibility = View.VISIBLE
+                    popupHolderView.bringToFront()
+                    webView?.executeDpk(it)
+                    event.bcid = SmarticoWebView.BridgeMessageInitializeWithEngagementEvent
+                    webView?.onClientEngagementEvent(event)
                 }
             }
         }
@@ -240,7 +317,6 @@ class SmarticoSdk private constructor() {
 }
 
 interface SmarticoSdkListener {
-    fun onEngagementEventAvailable(webView: WebView)
     fun closeWebView(webView: WebView)
 
     fun onConnected()

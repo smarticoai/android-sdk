@@ -20,6 +20,7 @@ import org.json.JSONObject
 internal class SmarticoWebView(context: Context) : WebView(context) {
     private var bridgeUp = false
     private val uiHandler = android.os.Handler(Looper.getMainLooper())
+    private var pendingOperations: ArrayList<(() -> Unit)> = ArrayList()
 
     fun executeDpk(url: String) {
         log("open webView with url=$url")
@@ -27,6 +28,8 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
         this.webViewClient = WebViewClient()
         this.webChromeClient = WebChromeClient()
         this.settings.javaScriptEnabled = true
+        this.settings.setSupportMultipleWindows(true)
+
 
         addJavascriptInterface(this, "SmarticoBridge")
         this.loadUrl(url)
@@ -47,11 +50,18 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
 
     fun onClientEngagementEvent(event: ClientEngagementEvent) {
         val msg = Gson().toJson(event)
-        send(msg)
+        if (bridgeUp) {
+            send(msg)
+        } else {
+            pendingOperations.add {
+                send(msg)
+            }
+        }
     }
 
     private fun send(message: String) {
         post {
+            log("postMessage $message")
             loadUrl("javascript:window.postMessage('$message', '*');")
         }
     }
@@ -62,6 +72,10 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
         val classId: Int = msg.getInt("bcid")
         if(classId == BridgeMessagePageReady) {
             bridgeUp = true
+            pendingOperations.forEach {
+                it()
+            }
+            pendingOperations.clear()
         } else if(classId == BridgeMessageCloseMe) {
             val listener = SmarticoSdk.instance.listener
             if (listener != null) {
@@ -72,7 +86,6 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
         } else if(classId == BridgeMessageExecuteDeeplink) {
             val dpk = msg.optString("dp", "")
             if(dpk.isNotEmpty()) {
-                // TODO: Check where and how to execute these DPKs exactly and what are the types
                 executeDpk(dpk)
             }
         } else if(classId == BridgeMessageReadyToBeShown) {
@@ -85,6 +98,7 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
     companion object {
         private const val BridgeMessagePageReady = 1
         private const val BridgeMessageCloseMe = 2
+        const val BridgeMessageInitializeWithEngagementEvent = 3
         private const val BridgeMessageExecuteDeeplink = 4
         private const val BridgeMessageReadyToBeShown = 5
         private const val BridgeMessageSendToSocket = 6

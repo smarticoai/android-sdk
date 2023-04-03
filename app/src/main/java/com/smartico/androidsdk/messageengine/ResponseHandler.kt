@@ -65,6 +65,7 @@ internal class ResponseHandler(connector: WebSocketConnector) {
                 }
             }
             ClassId.ClientEngagementEvent.id -> {
+                log("received client engagement event")
                 val clientEngagementEvent = gson.fromJson(string, ClientEngagementEvent::class.java)
                 SmarticoSdk.instance.handleEngagementEvent(clientEngagementEvent)
             }
