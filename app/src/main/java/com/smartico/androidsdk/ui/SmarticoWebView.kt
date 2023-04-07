@@ -9,11 +9,10 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.smartico.androidsdk.SmarticoSdk
-import com.smartico.androidsdk.SmarticoSdkListener
 import com.smartico.androidsdk.log
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
-import org.json.JSONException
 import org.json.JSONObject
 
 
@@ -49,7 +48,8 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
     }
 
     fun onClientEngagementEvent(event: ClientEngagementEvent) {
-        val msg = Gson().toJson(event)
+        val gson = GsonBuilder().create()
+        val msg = gson.toJson(event)
         if (bridgeUp) {
             send(msg)
         } else {
@@ -62,7 +62,8 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
     private fun send(message: String) {
         post {
             log("postMessage $message")
-            loadUrl("javascript:window.postMessage('$message', '*');")
+            loadUrl("javascript:window.postMessage($message, '*');")
+//            evaluateJavascript("window.postMessage($message)", null)
         }
     }
 
