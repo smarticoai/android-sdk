@@ -78,16 +78,13 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
             }
             pendingOperations.clear()
         } else if(classId == BridgeMessageCloseMe) {
-            val listener = SmarticoSdk.instance.listener
-            if (listener != null) {
-                listener.closeWebView(this)
-            } else {
-                (this.parent as? ViewGroup)?.removeView(this)
-            }
+            SmarticoSdk.instance.hidePopup()
         } else if(classId == BridgeMessageExecuteDeeplink) {
             val dpk = msg.optString("dp", "")
             if(dpk.isNotEmpty()) {
-                executeDpk(dpk)
+                SmarticoSdk.instance.context.get()?.let {
+                    SmarticoSdk.instance.executeDeeplink(it, dpk)
+                }
             }
         } else if(classId == BridgeMessageReadyToBeShown) {
             this.visibility = View.VISIBLE

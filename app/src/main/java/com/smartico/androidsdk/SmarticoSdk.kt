@@ -1,6 +1,7 @@
 package com.smartico.androidsdk
 
 import android.content.Context
+import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.ConnectivityManager.NetworkCallback
 import android.net.Network
@@ -14,11 +15,11 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import androidx.core.view.get
-import com.smartico.androidsdk.messageengine.ClassId
 import com.smartico.androidsdk.messageengine.PushClientPlatform
 import com.smartico.androidsdk.messageengine.PushNotificationUserStatus
 import com.smartico.androidsdk.messageengine.SdkSession
-import com.smartico.androidsdk.model.request.*
+import com.smartico.androidsdk.model.request.ChangeUserSettingsEvent
+import com.smartico.androidsdk.model.request.ChangeUserSettingsEventPayload
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import com.smartico.androidsdk.model.request.IdentifyUserRequest
 import com.smartico.androidsdk.model.request.InitSession
@@ -31,6 +32,7 @@ import java.lang.ref.WeakReference
 /*
 https://docs.google.com/document/d/1UCeW-101nR4cnwXCd0Iw-dCICUpJyWHXgIujOgjBHrA/edit#
 https://docs.google.com/document/d/1UxdF07JqKfsEhAwikvNhVIyqi3Zkj9rxPyl9HsXd8PA/edit#
+https://demo.smartico.ai/
  */
 class SmarticoSdk private constructor() {
 
@@ -224,6 +226,7 @@ class SmarticoSdk private constructor() {
                     val finalUrl =
                         "$url?label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
                     val webView = SmarticoWebView(context)
+                    webView.setBackgroundColor(Color.TRANSPARENT)
                     webView.executeDpk(finalUrl)
                     addToContainer(webView, viewGroup)
                 }
@@ -246,6 +249,7 @@ class SmarticoSdk private constructor() {
                 } else {
                     context.get()?.let {
                         val wv = SmarticoWebView(it)
+                        wv.setBackgroundColor(Color.TRANSPARENT)
                         addToContainer(wv, popupHolderView)
                         webView = wv
                     }
@@ -259,6 +263,10 @@ class SmarticoSdk private constructor() {
                 }
             }
         }
+    }
+
+    fun hidePopup() {
+        popupHolder?.get()?.visibility = View.GONE
     }
 
     internal fun forwardToServer(msg: String) {
@@ -329,8 +337,6 @@ class SmarticoSdk private constructor() {
 }
 
 interface SmarticoSdkListener {
-    fun closeWebView(webView: WebView)
-
     fun onConnected()
     fun onOnline()
     fun onDisconnected()
