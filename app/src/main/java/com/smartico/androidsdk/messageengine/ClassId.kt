@@ -8,7 +8,8 @@ internal enum class ClassId(val id: Int) {
     IdentifyRequest(5),
     IdentifyResponse(6),
     GenericEvent(9),
-    ClientEngagementEvent(110);
+    ClientEngagementEvent(110),
+    TriggerMiniGame(707);
 
 
     companion object {

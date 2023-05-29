@@ -7,6 +7,7 @@ import android.net.ConnectivityManager.NetworkCallback
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.Uri
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
@@ -24,9 +25,11 @@ import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import com.smartico.androidsdk.model.request.IdentifyUserRequest
 import com.smartico.androidsdk.model.request.InitSession
 import com.smartico.androidsdk.model.request.UA
+import com.smartico.androidsdk.model.response.TriggerMiniGameResponse
 import com.smartico.androidsdk.network.WebSocketConnector
 import com.smartico.androidsdk.ui.SmarticoWebView
 import java.lang.ref.WeakReference
+import java.net.URL
 
 
 /*
@@ -166,6 +169,7 @@ class SmarticoSdk private constructor() {
                     )
                 )
             }
+
             is RelativeLayout -> {
                 container.addView(
                     webView,
@@ -175,6 +179,7 @@ class SmarticoSdk private constructor() {
                     )
                 )
             }
+
             is FrameLayout -> {
                 container.addView(
                     webView,
@@ -184,6 +189,7 @@ class SmarticoSdk private constructor() {
                     )
                 )
             }
+
             else -> {
                 container.addView(webView)
             }
@@ -209,28 +215,42 @@ class SmarticoSdk private constructor() {
     }
 
     fun executeDeeplink(context: Context, link: String) {
+        this.executeDeeplink(context, link, "")
+    }
+
+    fun executeDeeplink(context: Context, link: String, query: String) {
         gamificationHolder?.get()?.let {
-            executeDeeplink(context, link, it)
+            executeDeeplink(context, link, it, query)
         }
     }
 
-    private fun executeDeeplink(context: Context, link: String, viewGroup: ViewGroup) {
+    private fun executeDeeplink(
+        context: Context,
+        link: String,
+        viewGroup: ViewGroup,
+        queryString: String
+    ) {
         android.os.Handler(Looper.getMainLooper()).post {
             SdkSession.instance.sessionResponse?.settings?.gamificationWrapperPage?.let { url ->
                 if (url.isNotEmpty()) {
-                    val labelKey = SdkSession.instance.labelKey ?: ""
-                    val brandKey = SdkSession.instance.brandKey ?: ""
-                    val userExtId = SdkSession.instance.userExtId ?: ""
-
                     // AA: pass known deep-links to gamification widget as part of URL
                     val finalUrl =
-                        "$url?label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$link"
+                        "$url?$queryString"
                     val webView = SmarticoWebView(context)
                     webView.setBackgroundColor(Color.TRANSPARENT)
                     webView.executeDpk(finalUrl)
                     addToContainer(webView, viewGroup)
                 }
             }
+        }
+    }
+
+    internal fun triggerMiniGame(response: TriggerMiniGameResponse) {
+        context.get()?.let {
+            val session = SdkSession.instance
+            val dp = "dp:gf_saw&id=${response.sawTemplateId}&standalone=true"
+            val query = "label_name=${Uri.encode(session.labelKey)}&brand_key=${Uri.encode(session.brandKey)}&user_ext_id=${Uri.encode(session.userExtId)}&$dp"
+            executeDeeplink(it, "", query)
         }
     }
 
@@ -241,7 +261,7 @@ class SmarticoSdk private constructor() {
                 var webView: SmarticoWebView? = null
                 if (popupHolderView.childCount > 0) {
                     popupHolderView[0].let { view ->
-                        if(view is SmarticoWebView) {
+                        if (view is SmarticoWebView) {
                             log("handleEngagementEvent holder ok")
                             webView = view
                         }

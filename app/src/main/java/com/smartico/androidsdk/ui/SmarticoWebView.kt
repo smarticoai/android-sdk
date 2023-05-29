@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.smartico.androidsdk.SmarticoSdk
 import com.smartico.androidsdk.log
+import com.smartico.androidsdk.messageengine.SdkSession
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import org.json.JSONObject
 
@@ -83,7 +84,12 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
             val dpk = msg.optString("dp", "")
             if(dpk.isNotEmpty()) {
                 SmarticoSdk.instance.context.get()?.let {
-                    SmarticoSdk.instance.executeDeeplink(it, dpk)
+                    val sessionInstance = SdkSession.instance
+                    val labelKey = sessionInstance.labelKey ?: ""
+                    val brandKey = sessionInstance.brandKey ?: ""
+                    val userExtId = sessionInstance.userExtId ?: ""
+                    val query = "label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$dpk"
+                    SmarticoSdk.instance.executeDeeplink(it, dpk, query)
                 }
             }
         } else if(classId == BridgeMessageReadyToBeShown) {

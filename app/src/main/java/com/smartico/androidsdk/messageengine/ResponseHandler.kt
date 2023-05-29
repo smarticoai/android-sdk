@@ -9,6 +9,7 @@ import com.smartico.androidsdk.model.request.ChangeUserSettingsEventPayload
 import com.smartico.androidsdk.model.request.ClientEngagementEvent
 import com.smartico.androidsdk.model.response.IdentifyUserResponse
 import com.smartico.androidsdk.model.response.InitSessionResponse
+import com.smartico.androidsdk.model.response.TriggerMiniGameResponse
 import com.smartico.androidsdk.network.WebSocketConnector
 import org.json.JSONObject
 import java.lang.ref.WeakReference
@@ -68,6 +69,11 @@ internal class ResponseHandler(connector: WebSocketConnector) {
                 log("received client engagement event")
                 val clientEngagementEvent = gson.fromJson(string, ClientEngagementEvent::class.java)
                 SmarticoSdk.instance.handleEngagementEvent(clientEngagementEvent)
+            }
+            ClassId.TriggerMiniGame.id -> {
+                log("trigger mini game")
+                val triggerMiniGameResponse = gson.fromJson(string, TriggerMiniGameResponse::class.java)
+                SmarticoSdk.instance.triggerMiniGame(triggerMiniGameResponse)
             }
 
         }
