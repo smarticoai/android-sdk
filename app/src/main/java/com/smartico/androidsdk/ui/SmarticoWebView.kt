@@ -8,7 +8,6 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.smartico.androidsdk.SmarticoSdk
 import com.smartico.androidsdk.log
@@ -19,19 +18,23 @@ import org.json.JSONObject
 
 internal class SmarticoWebView(context: Context) : WebView(context) {
     private var bridgeUp = false
+    private var readyToBeShown = false
     private val uiHandler = android.os.Handler(Looper.getMainLooper())
     private var pendingOperations: ArrayList<(() -> Unit)> = ArrayList()
 
     fun executeDpk(url: String) {
-        log("open webView with url=$url")
-        this.visibility = View.INVISIBLE
-        this.webViewClient = WebViewClient()
-        this.webChromeClient = WebChromeClient()
-        this.settings.javaScriptEnabled = true
-        this.settings.setSupportMultipleWindows(true)
-
-
-        addJavascriptInterface(this, "SmarticoBridge")
+        logWv("open webView with url=$url")
+        if(!readyToBeShown) {
+            this.visibility = View.INVISIBLE
+            this.webViewClient = WebViewClient()
+            this.webChromeClient = WebChromeClient()
+            this.settings.javaScriptEnabled = true
+            this.settings.setSupportMultipleWindows(true)
+            addJavascriptInterface(this, "SmarticoBridge")
+        }
+        if(this.parent is ViewGroup) {
+            (this.parent as ViewGroup).visibility = VISIBLE
+        }
         this.loadUrl(url)
     }
 
@@ -39,7 +42,7 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
     fun postMessage(message: String): Boolean {
         uiHandler.post {
             try {
-                log("Webview message: $message")
+                logWv("Webview incoming message: $message")
                 handleMessage(message)
             } catch (e: Exception) {
                 log(e)
@@ -62,39 +65,49 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
 
     private fun send(message: String) {
         post {
-            log("postMessage $message")
+            logWv("send $message")
             loadUrl("javascript:window.postMessage($message, '*');")
-//            evaluateJavascript("window.postMessage($message)", null)
         }
+    }
+
+    private fun logWv(msg: String) {
+        log("${this.hashCode()} - $msg")
     }
 
 
     private fun handleMessage(message: String) {
         val msg = JSONObject(message)
         val classId: Int = msg.getInt("bcid")
-        if(classId == BridgeMessagePageReady) {
+        if (classId == BridgeMessagePageReady) {
             bridgeUp = true
             pendingOperations.forEach {
                 it()
             }
             pendingOperations.clear()
-        } else if(classId == BridgeMessageCloseMe) {
+        } else if (classId == BridgeMessageCloseMe) {
             SmarticoSdk.instance.hidePopup()
-        } else if(classId == BridgeMessageExecuteDeeplink) {
+        } else if (classId == BridgeMessageExecuteDeeplink) {
             val dpk = msg.optString("dp", "")
-            if(dpk.isNotEmpty()) {
-                SmarticoSdk.instance.context.get()?.let {
-                    val sessionInstance = SdkSession.instance
-                    val labelKey = sessionInstance.labelKey ?: ""
-                    val brandKey = sessionInstance.brandKey ?: ""
-                    val userExtId = sessionInstance.userExtId ?: ""
-                    val query = "label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$dpk"
-                    SmarticoSdk.instance.executeDeeplink(it, dpk, query)
+            var hasMatch = false
+            for (value in DPK.values()) {
+                if(value.id == dpk) {
+                    hasMatch = true
                 }
             }
-        } else if(classId == BridgeMessageReadyToBeShown) {
+            if (dpk.isNotEmpty() && hasMatch) {
+                val sessionInstance = SdkSession.instance
+                val labelKey = sessionInstance.labelKey ?: ""
+                val brandKey = sessionInstance.brandKey ?: ""
+                val userExtId = sessionInstance.userExtId ?: ""
+                val query =
+                    "label_name=$labelKey&brand_key=$brandKey&user_ext_id=$userExtId&dp=$dpk"
+                SmarticoSdk.instance.openDeeplink(query)
+            }
+        } else if (classId == BridgeMessageReadyToBeShown) {
+            logWv("show webview")
             this.visibility = View.VISIBLE
-        } else if(classId == BridgeMessageSendToSocket) {
+            this.readyToBeShown = true
+        } else if (classId == BridgeMessageSendToSocket) {
             SmarticoSdk.instance.forwardToServer(message)
         }
     }
@@ -107,4 +120,22 @@ internal class SmarticoWebView(context: Context) : WebView(context) {
         private const val BridgeMessageReadyToBeShown = 5
         private const val BridgeMessageSendToSocket = 6
     }
+}
+enum class DPK(val id: String) {
+    GfMain("gf"),
+    Activity("gf_activity"),
+    Missions("gf_missions"),
+    Badges("gf_badges"),
+    LeaderBoard("gf_board"),
+    Tournaments("gf_tournaments"),
+    LeaderBoardPrev("gf_board_previous"),
+    LeaderBoardRules("gf_board_rules"),
+    Bonuses("gf_bonuses"),
+    Levels("gf_levels"),
+    Saw("gf_saw"),
+    Store("gf_store"),
+    Settings("gf_settings"),
+    Section("gf_section"),
+    ChangeNickname("gf_change_nickname"),
+    ChangeAvatar("gf_change_avatar"),
 }

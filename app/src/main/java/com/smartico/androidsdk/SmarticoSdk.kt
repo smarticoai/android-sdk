@@ -131,6 +131,10 @@ class SmarticoSdk private constructor() {
     // }
 
     fun triggerEngagementEvent() {
+        popupHolder?.get()?.visibility = View.VISIBLE
+        popupHolder?.get()?.bringToFront()
+        gamificationHolder?.get()?.visibility = View.INVISIBLE
+
         webSocketConnector?.sendMessage(
             ChangeUserSettingsEvent(
                 eventType = "client_action", payload = ChangeUserSettingsEventPayload(
@@ -141,6 +145,10 @@ class SmarticoSdk private constructor() {
     }
 
     fun triggerMiniGameEvent() {
+        gamificationHolder?.get()?.visibility = View.VISIBLE
+        gamificationHolder?.get()?.bringToFront()
+        popupHolder?.get()?.visibility = View.INVISIBLE
+
         webSocketConnector?.sendMessage(
             ChangeUserSettingsEvent(
                 eventType = "client_action", payload = ChangeUserSettingsEventPayload(
@@ -214,19 +222,17 @@ class SmarticoSdk private constructor() {
         webSocketConnector?.sendMessage(request)
     }
 
-    fun executeDeeplink(context: Context, link: String) {
-        this.executeDeeplink(context, link, "")
-    }
+    public fun openDeeplink(query: String) {
+        gamificationHolder?.get()?.visibility = View.VISIBLE
+        gamificationHolder?.get()?.bringToFront()
+        popupHolder?.get()?.visibility = View.INVISIBLE
 
-    fun executeDeeplink(context: Context, link: String, query: String) {
         gamificationHolder?.get()?.let {
-            executeDeeplink(context, link, it, query)
+            executeDeeplink(it, query)
         }
     }
 
-    private fun executeDeeplink(
-        context: Context,
-        link: String,
+    fun executeDeeplink(
         viewGroup: ViewGroup,
         queryString: String
     ) {
@@ -236,21 +242,23 @@ class SmarticoSdk private constructor() {
                     // AA: pass known deep-links to gamification widget as part of URL
                     val finalUrl =
                         "$url?$queryString"
-                    val webView = SmarticoWebView(context)
-                    webView.setBackgroundColor(Color.TRANSPARENT)
-                    webView.executeDpk(finalUrl)
-                    addToContainer(webView, viewGroup)
+
+                    createSmarticoWebView(viewGroup)?.let {webView ->
+                        webView.setBackgroundColor(Color.TRANSPARENT)
+                        webView.executeDpk(finalUrl)
+                    }
                 }
             }
         }
     }
 
     internal fun triggerMiniGame(response: TriggerMiniGameResponse) {
-        context.get()?.let {
-            val session = SdkSession.instance
-            val dp = "dp:gf_saw&id=${response.sawTemplateId}&standalone=true"
-            val query = "label_name=${Uri.encode(session.labelKey)}&brand_key=${Uri.encode(session.brandKey)}&user_ext_id=${Uri.encode(session.userExtId)}&$dp"
-            executeDeeplink(it, "", query)
+        val session = SdkSession.instance
+        val dp = "dp:gf_saw&id=${response.sawTemplateId}&standalone=true"
+        val query = "label_name=${Uri.encode(session.labelKey)}&brand_key=${Uri.encode(session.brandKey)}&user_ext_id=${Uri.encode(session.userExtId)}&$dp"
+        android.os.Handler(Looper.getMainLooper()).post {
+            gamificationHolder?.get()?.removeAllViews()
+            openDeeplink(query)
         }
     }
 
@@ -258,31 +266,40 @@ class SmarticoSdk private constructor() {
         popupHolder?.get()?.let { popupHolderView ->
             android.os.Handler(Looper.getMainLooper()).post {
                 log("handleEngagementEvent holder ok")
-                var webView: SmarticoWebView? = null
-                if (popupHolderView.childCount > 0) {
-                    popupHolderView[0].let { view ->
-                        if (view is SmarticoWebView) {
-                            log("handleEngagementEvent holder ok")
-                            webView = view
-                        }
-                    }
-                } else {
-                    context.get()?.let {
-                        val wv = SmarticoWebView(it)
-                        wv.setBackgroundColor(Color.TRANSPARENT)
-                        addToContainer(wv, popupHolderView)
-                        webView = wv
-                    }
-                }
+                popupHolderView.removeAllViews()
+                val webView: SmarticoWebView? = createSmarticoWebView(popupHolderView)
                 SdkSession.instance.sessionResponse?.settings?.engagementWrapperPage?.let {
                     popupHolderView.visibility = View.VISIBLE
                     popupHolderView.bringToFront()
-                    webView?.executeDpk(it)
                     event.bcid = SmarticoWebView.BridgeMessageInitializeWithEngagementEvent
                     webView?.onClientEngagementEvent(event)
+                    webView?.executeDpk(it)
+                    webView?.visibility = View.VISIBLE
                 }
             }
         }
+    }
+
+    private fun createSmarticoWebView(viewHolder: ViewGroup): SmarticoWebView? {
+        var webView: SmarticoWebView? = null
+        if (viewHolder.childCount > 0) {
+            viewHolder[0].let { view ->
+                if (view is SmarticoWebView) {
+                    log("createSmarticoWebView existing webview found")
+                    webView = view
+                }
+            }
+        } else {
+            context.get()?.let {
+                val isPopupHolder = popupHolder?.get() == viewHolder
+                log("isPopupHolder=$isPopupHolder")
+                val wv = SmarticoWebView(it)
+                wv.setBackgroundColor(Color.TRANSPARENT)
+                addToContainer(wv, viewHolder)
+                webView = wv
+            }
+        }
+        return webView
     }
 
     fun hidePopup() {
