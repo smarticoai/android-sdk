@@ -255,7 +255,7 @@ class SmarticoSdk private constructor() {
     internal fun triggerMiniGame(response: TriggerMiniGameResponse) {
         val session = SdkSession.instance
         val dp = "dp:gf_saw&id=${response.sawTemplateId}&standalone=true"
-        val query = "label_name=${Uri.encode(session.labelKey)}&brand_key=${Uri.encode(session.brandKey)}&user_ext_id=${Uri.encode(session.userExtId)}&$dp"
+        val query = "label_name=${Uri.encode(session.labelKey)}&brand_key=${Uri.encode(session.brandKey)}&user_ext_id=${Uri.encode(session.userExtId)}&dp=${Uri.encode(dp)}"
         android.os.Handler(Looper.getMainLooper()).post {
             gamificationHolder?.get()?.removeAllViews()
             openDeeplink(query)
